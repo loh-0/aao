@@ -1,1 +1,573 @@
+<!DOCTYPE html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+<title>AAO Archive Search</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,600&display=swap">
+<style>
+/* Layout: one reading column. Masthead, tabs, a search bar with filters under it, then results as a dated ledger (newest first), each entry led by its citation. */
+:root{
+  --paper:#f6f8f9; --surface:#ffffff; --ink:#16242c; --muted:#56666f; --rule:#d5dde1;
+  --accent:#0b5c6b; --accent-ink:#ffffff; --tint:#e3eff1; --mark:#ffe38a; --mark-ink:#16242c; --warn:#8a5a00; --warn-bg:#fdf3d7;
+  --display:"Source Serif 4",Georgia,"Times New Roman",serif;
+  --body:"Public Sans",-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,"Cascadia Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#10191d; --surface:#17232a; --ink:#e4ecef; --muted:#9aaab2; --rule:#2c3b43;
+  --accent:#6cc5d4; --accent-ink:#0c1a1f; --tint:#1d3037; --mark:#7a5c00; --mark-ink:#fff6d6; --warn:#f0c869; --warn-bg:#33290f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#10191d; --surface:#17232a; --ink:#e4ecef; --muted:#9aaab2; --rule:#2c3b43;
+  --accent:#6cc5d4; --accent-ink:#0c1a1f; --tint:#1d3037; --mark:#7a5c00; --mark-ink:#fff6d6; --warn:#f0c869; --warn-bg:#33290f; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.55;margin:0}
+.wrap{max-width:900px;margin:0 auto;padding-inline:20px;padding-block:28px 64px;display:flex;flex-direction:column;gap:20px}
+header h1{font-family:var(--display);font-size:clamp(1.6rem,4vw,2.1rem);line-height:1.15;margin:0;text-wrap:balance}
+header p{margin:6px 0 0;color:var(--muted);max-width:65ch}
+.tabs{display:flex;flex-wrap:wrap;gap:4px;border-bottom:1px solid var(--rule)}
+.tabs button{font:inherit;font-weight:600;background:none;border:0;border-bottom:3px solid transparent;color:var(--muted);padding:9px 12px;cursor:pointer;margin-bottom:-1px}
+.tabs button[aria-selected="true"]{color:var(--accent);border-bottom-color:var(--accent)}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.panel{display:flex;flex-direction:column;gap:14px}
+.lead{margin:0;color:var(--muted);max-width:68ch}
+.searchrow{display:flex;flex-wrap:wrap;gap:8px}
+.searchrow input[type=search]{flex:1 1 260px;min-width:0}
+input,select{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:9px 11px}
+input[type=search]{font-size:1.05rem}
+details.filters{background:var(--surface);border:1px solid var(--rule);border-radius:8px;padding:10px 14px}
+details.filters summary{cursor:pointer;font-weight:600}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-top:12px}
+.fgrid label{display:flex;flex-direction:column;gap:4px;font-size:.82rem;color:var(--muted);font-weight:600;min-width:0}
+.fgrid input,.fgrid select{width:100%}
+.yr{display:flex;gap:6px;align-items:center}
+.linkbtn{font:inherit;background:none;border:0;color:var(--accent);text-decoration:underline;cursor:pointer;padding:0}
+.count{font-weight:600;margin:0}
+.note{background:var(--warn-bg);color:var(--warn);border-radius:6px;padding:8px 12px;margin:0;font-size:.9rem}
+.entry{border-top:1px solid var(--rule);padding-top:14px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.cite{display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}
+.cite strong{font-weight:700}
+.cite .meta{color:var(--muted);font-size:.88rem}
+.cite a{color:var(--accent);font-size:.88rem;font-weight:600;white-space:nowrap}
+.eg{font-size:.72rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);background:var(--tint);border-radius:4px;padding:2px 7px}
+ul.items{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px}
+ul.items li{display:grid;grid-template-columns:minmax(0,15rem) minmax(0,1fr);gap:4px 14px;overflow-wrap:anywhere}
+ul.items .dept{font-weight:600}
+ul.items .pg{color:var(--muted);font-size:.82rem;font-weight:400;white-space:nowrap}
+.kind{font-size:.72rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+.snip{margin:0;overflow-wrap:anywhere;max-width:78ch}
+mark{background:var(--mark);color:var(--mark-ink);border-radius:2px;padding:0 1px}
+details.full summary{cursor:pointer;color:var(--accent);font-size:.88rem;font-weight:600}
+details.full pre{white-space:pre-wrap;overflow-wrap:anywhere;font-family:var(--mono);font-size:.82rem;background:var(--surface);border:1px solid var(--rule);border-radius:6px;padding:10px;margin:8px 0 0}
+.more{align-self:flex-start;font:inherit;font-weight:600;color:var(--accent-ink);background:var(--accent);border:0;border-radius:6px;padding:9px 16px;cursor:pointer}
+.tablebox{overflow-x:auto;border:1px solid var(--rule);border-radius:8px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;font-size:.9rem;font-variant-numeric:tabular-nums}
+th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font-size:.75rem;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+td a{color:var(--accent);font-weight:600}
+.pill{display:inline-block;font-size:.76rem;font-weight:600;border-radius:99px;padding:1px 9px;white-space:nowrap;background:var(--tint);color:var(--accent)}
+.pill.words{background:transparent;color:var(--muted);border:1px solid var(--rule)}
+.pill.none{background:var(--warn-bg);color:var(--warn)}
+.about h2{font-family:var(--display);font-size:1.2rem;margin:10px 0 0}
+.about ul{margin:0;padding-left:1.2em;max-width:70ch;display:flex;flex-direction:column;gap:6px}
+.about p{margin:0;max-width:70ch}
+.actbox{position:relative}
+.suggest{display:flex;flex-direction:column;border:1px solid var(--rule);border-radius:8px;background:var(--surface);overflow:hidden}
+.suggest button{font:inherit;text-align:left;background:none;border:0;border-bottom:1px solid var(--rule);color:var(--ink);padding:9px 12px;cursor:pointer;display:flex;justify-content:space-between;gap:12px}
+.suggest button:last-child{border-bottom:0}
+.suggest button:hover,.suggest button:focus-visible{background:var(--tint)}
+.suggest .n{color:var(--muted);font-size:.85rem;white-space:nowrap}
+.acthead{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 16px}
+.acthead h2{font-family:var(--display);font-size:1.45rem;margin:0;text-wrap:balance}
+.acthead .meta{color:var(--muted);font-size:.9rem}
+.asat{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.asat label{font-weight:600}
+.card{background:var(--surface);border:1px solid var(--rule);border-left:4px solid var(--accent);border-radius:8px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.card .big{font-size:1.15rem;font-weight:700}
+.card .sub{color:var(--muted);font-size:.9rem}
+.card ul{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:4px}
+.card .row{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+.copy{font:inherit;font-size:.85rem;font-weight:600;color:var(--accent);background:none;border:1px solid var(--rule);border-radius:6px;padding:5px 10px;cursor:pointer}
+.chart{position:relative;background:var(--surface);border:1px solid var(--rule);border-radius:8px;padding:12px 12px 6px;overflow-x:auto}
+.chart svg{display:block;width:100%;min-width:560px;height:auto}
+.chart text{fill:var(--muted);font-family:var(--body);font-size:12px}
+.chart text.lane{fill:var(--ink);font-weight:600}
+.chart .grid{stroke:var(--rule);stroke-width:1}
+.chart .bar{fill:var(--accent)}
+.chart .bar.part{fill:url(#hatch)}
+.chart .bar:hover,.chart .mk:hover{opacity:.75}
+.chart .mk{fill:var(--warn)}
+.chart .now{stroke:var(--ink);stroke-width:1.5;stroke-dasharray:4 3}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:.85rem;color:var(--muted);margin:8px 2px 2px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{display:inline-block;width:22px;height:10px;border-radius:2px;background:var(--accent)}
+.sw.part{background:repeating-linear-gradient(45deg,var(--accent) 0 3px,transparent 3px 6px);border:1px solid var(--accent)}
+.sw.mk{width:10px;height:10px;transform:rotate(45deg);background:var(--warn);border-radius:1px}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--paper);font-size:.82rem;line-height:1.4;padding:7px 10px;border-radius:6px;max-width:300px;z-index:3}
+tr.warnrow td{background:var(--warn-bg)}
+.panel h3{font-family:var(--display);font-size:1.1rem;margin:6px 0 0}
+@media (max-width:560px){ul.items li{grid-template-columns:1fr}}
+</style>
 
+<div class="wrap">
+  <header>
+    <h1>Administrative Arrangements Orders archive</h1>
+    <p id="stats"></p>
+  </header>
+
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tab-act" data-tab="act">Act timeline</button>
+    <button role="tab" id="tab-departments" data-tab="departments">Departments and Acts</button>
+    <button role="tab" id="tab-text" data-tab="text">Search the full text</button>
+    <button role="tab" id="tab-documents" data-tab="documents">All documents</button>
+    <button role="tab" id="tab-about" data-tab="about">Limits and gaps</button>
+  </div>
+
+  <details class="filters" id="filters">
+    <summary>Narrow the search <span id="filtersum" class="meta"></span></summary>
+    <div class="fgrid">
+      <label>Years<span class="yr"><input type="number" id="f-y0" inputmode="numeric" aria-label="From year"> to <input type="number" id="f-y1" inputmode="numeric" aria-label="To year"></span></label>
+      <label for="f-pm">Prime Minister<select id="f-pm"><option value="">Any</option></select></label>
+      <label for="f-role">Document type<select id="f-role"><option value="">Orders and amendments</option><option value="order">Orders only</option><option value="amendment">Amendments only</option></select></label>
+      <label for="f-asat">Made on or before<input type="date" id="f-asat"></label>
+    </div>
+    <p style="margin:10px 0 0"><button class="linkbtn" id="f-clear" type="button">Clear filters</button></p>
+  </details>
+
+  <section class="panel" id="p-act">
+    <p class="lead" id="actlead">Follow one Act through the orders: which department administered it, and when it moved.</p>
+    <div class="actbox">
+      <input type="search" id="q-act" autocomplete="off" placeholder="Name an Act, e.g. Privacy Act" aria-label="Name an Act">
+    </div>
+    <div class="suggest" id="act-suggest" hidden></div>
+    <input type="hidden" id="act-date-keep" value="">
+    <div id="act-out" class="panel"></div>
+  </section>
+
+  <section class="panel" id="p-departments" hidden>
+    <p class="lead" id="deptlead">Find which department was responsible for an Act or a matter.</p>
+    <div class="searchrow">
+      <input type="search" id="q-items" placeholder='Act or matter, e.g. Privacy Act   or   "foreign investment"' aria-label="Act or matter">
+      <select id="kind" aria-label="Look in"><option value="">Acts and matters</option><option value="1">Acts only</option><option value="0">Matters only</option></select>
+    </div>
+    <div id="r-items" class="panel"></div>
+  </section>
+
+  <section class="panel" id="p-text" hidden>
+    <p class="lead">Searches every word of every document, including the older scanned ones. Put a phrase in "quotation marks" to keep the words together. Old scans contain misread letters, so try a shorter word if nothing comes up.</p>
+    <div class="searchrow"><input type="search" id="q-text" placeholder='Words to find, e.g. "Snowy Mountains"   or   lighthouses' aria-label="Words to find"></div>
+    <div id="r-text" class="panel"></div>
+  </section>
+
+  <section class="panel" id="p-documents" hidden>
+    <p class="count" id="doccount"></p>
+    <div class="tablebox"><table><thead><tr><th>Date</th><th>Type</th><th>Amends order of</th><th>Prime Minister</th><th>Coverage</th><th>Source</th></tr></thead><tbody id="doctable"></tbody></table></div>
+  </section>
+
+  <section class="panel about" id="p-about" hidden>
+    <p>Every result names the order it came from and links to the original on the National Archives of Australia site. Check the original before relying on a result.</p>
+    <h2>Limits</h2>
+    <ul>
+      <li><strong>An order shows the position on its own date.</strong> To find who administered an Act on a given date, set "Made on or before" under Narrow the search, read the newest order listed, then check whether a later amendment changed it.</li>
+      <li><strong>Short amendments are not sorted by department.</strong> They say "omit" and "insert" instead of giving full lists. Find them with the full-text search.</li>
+      <li><strong>Not every order is sorted by department.</strong> An order is only sorted when every check on it passes, because a wrong department is worse than none. Most orders before 1973, and some after, are word search only. The "All documents" tab shows the coverage of each one.</li>
+      <li><strong>The older orders are scans.</strong> Letters are sometimes misread (for example "198l" for "1981"), so a search for an exact Act name can miss a document. Try a shorter or distinctive word.</li>
+      <li><strong>Page numbers refer to the PDF</strong>, not the page number printed on the Gazette.</li>
+      <li><strong>A long entry is sometimes split in two, or two entries joined,</strong> where the original ran over a line.</li>
+    </ul>
+    <h2>Known gaps</h2>
+    <ul>
+      <li>One early record held by the National Library of Australia (about 1901 to 1904) could not be downloaded.</li>
+      <li>Nothing after 1 February 2020 is included.</li>
+    </ul>
+    <p id="built" class="meta" style="color:var(--muted)"></p>
+  </section>
+</div>
+<script>
+(function(){
+const _loading = document.createElement('div');
+_loading.id = 'loading-msg';
+_loading.style.cssText = 'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--paper);font-family:var(--body);font-size:1.1rem;color:var(--muted);z-index:999';
+_loading.textContent = 'Loading data…';
+document.body.appendChild(_loading);
+fetch('aao-data.json').then(r => r.json()).then(DATA => {
+document.body.removeChild(_loading);
+const D = DATA.docs.map(d => ({url:d[0], role:d[1], order:d[2], amend:d[3], iso:d[4], year:d[5], pms:d[6], hasText:d[7], sorted:d[8]}));
+const P = DATA.passages, DEP = DATA.depts, T = DATA.texts, I = DATA.items;   // I: [doc, dept, part, kind, page, text]
+const Tl = T.map(s => s.toLowerCase()), DEPl = DEP.map(s => s.toLowerCase());
+let Pl = null;
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+const years = D.map(d => d.year).filter(Boolean), Y0 = Math.min(...years), Y1 = Math.max(...years);
+
+function deptName(raw){
+  return raw.toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase()).replace(/'S\b/g, "'s")
+    .replace(/\b(Of|The|And)\b/g, (m, w, i) => i ? m.toLowerCase() : m);
+}
+function cite(d){
+  return d.role === 'amendment' ? `Amendment of ${d.amend} to the Order of ${d.order}`
+       : `Administrative Arrangements Order of ${d.order || 'unknown date'}`;
+}
+function citeHtml(d, page, example){
+  return `<div class="cite"><strong>${esc(cite(d))}</strong>` + (example ? '<span class="eg">Example search</span>' : '') +
+    `<span class="meta">${esc(d.pms)}${page ? ' · PDF page ' + page : ''}</span>` +
+    (d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener">Open source document</a>` : '') + `</div>`;
+}
+// what the person typed -> list of matchers. "Quoted phrases" stay together; words match from the start of a word.
+function terms(q){
+  const out = [];
+  q = q.replace(/[“”]/g, '"');
+  q.replace(/"([^"]+)"/g, (m, p) => { if (p.trim()) out.push(p.trim()); return ' '; });
+  q.replace(/"[^"]*"/g, ' ').split(/[^A-Za-z0-9'’-]+/).forEach(w => { if (w.replace(/['’-]/g, '')) out.push(w); });
+  return out.map(t => new RegExp('(^|[^a-z0-9])' + t.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'), 'i'));
+}
+function filters(){
+  return {y0: +$('f-y0').value || Y0, y1: +$('f-y1').value || Y1, pm: $('f-pm').value, role: $('f-role').value, asat: $('f-asat').value};
+}
+function docOk(d, f){
+  if (d.year && (d.year < f.y0 || d.year > f.y1)) return false;
+  if (!d.year && (f.y0 > Y0 || f.y1 < Y1 || f.asat)) return false;
+  if (f.pm && !d.pms.split('; ').includes(f.pm)) return false;
+  if (f.role && d.role !== f.role) return false;
+  if (f.asat && d.iso > f.asat) return false;
+  return true;
+}
+const byDate = (a, b) => (D[b].iso || '').localeCompare(D[a].iso || '') || a - b;
+
+// ---------------- Departments and Acts ----------------
+const EXAMPLE = 'Privacy Act 1988';
+let itemsShown = 25;
+function runItems(){
+  const box = $('r-items'); box.textContent = '';
+  let q = $('q-items').value.trim(); const example = !q; if (example) q = EXAMPLE;
+  const ts = terms(q), f = filters(), kind = $('kind').value;
+  if (!ts.length) return;
+  const hitText = new Uint8Array(T.length);
+  for (let i = 0; i < T.length; i++) hitText[i] = ts.every(r => r.test(Tl[i])) ? 1 : 0;
+  const okDoc = D.map(d => docOk(d, f));
+  const groups = new Map(); let n = 0;
+  for (const it of I){
+    if (!hitText[it[5]] || !okDoc[it[0]] || (kind !== '' && it[3] !== +kind)) continue;
+    if (!groups.has(it[0])) groups.set(it[0], []);
+    groups.get(it[0]).push(it); n++;
+  }
+  const docs = [...groups.keys()].sort(byDate);
+  if (!n){
+    box.append(el('p', 'note', 'No matches in the sorted orders. Try "Search the full text", which also covers the older documents and the short amendments.'));
+    return;
+  }
+  box.append(el('p', 'count', `${n} ${n === 1 ? 'entry' : 'entries'} in ${docs.length} ${docs.length === 1 ? 'document' : 'documents'}, newest first` + (example ? ` (showing an example search for ${esc(EXAMPLE)})` : '')));
+  if (f.asat) box.append(el('p', 'note', 'The newest document listed is usually the one in force at your date. Short amendments are not sorted by department, so also check the full-text search for a later amendment.'));
+  docs.slice(0, itemsShown).forEach(di => {
+    const e = el('div', 'entry', citeHtml(D[di], null, example));
+    const ul = el('ul', 'items');
+    groups.get(di).forEach(it => ul.append(el('li', '',
+      `<span class="dept">${esc(deptName(DEP[it[1]]))} <span class="pg">${it[2] ? 'Part ' + esc(it[2]) + ' · ' : ''}p. ${it[4]}</span></span>` +
+      `<span><span class="kind">${it[3] ? 'Act' : 'Matter'}</span>${esc(T[it[5]])}` +
+      (it[6] >= 0 ? ` <span class="pg">(listed under "${esc(T[it[6]])}")</span>` : '') + `</span>`)));
+    e.append(ul); box.append(e);
+  });
+  if (docs.length > itemsShown){
+    const b = el('button', 'more', `Show ${Math.min(25, docs.length - itemsShown)} more documents`); b.type = 'button';
+    b.onclick = () => { itemsShown += 25; runItems(); }; box.append(b);
+  }
+}
+
+// ---------------- Full text ----------------
+let textShown = 40;
+function snippet(text, ts){
+  let first = text.length, spans = [];
+  ts.forEach(r => { const g = new RegExp(r.source, 'gi'); let m;
+    while ((m = g.exec(text)) && spans.length < 400){ const s = m.index + m[1].length; spans.push([s, m.index + m[0].length]); if (s < first) first = s; if (!m[0]) g.lastIndex++; } });
+  const a = Math.max(0, first - 140), b = Math.min(text.length, first + 320);
+  spans = spans.filter(s => s[0] >= a && s[1] <= b).sort((x, y) => x[0] - y[0]);
+  let out = a ? '… ' : '', pos = a;
+  spans.forEach(s => { if (s[0] < pos) return; out += esc(text.slice(pos, s[0])) + '<mark>' + esc(text.slice(s[0], s[1])) + '</mark>'; pos = s[1]; });
+  return out + esc(text.slice(pos, b)) + (b < text.length ? ' …' : '');
+}
+function runText(){
+  const box = $('r-text'); box.textContent = '';
+  const ts = terms($('q-text').value.trim()), f = filters();
+  if (!ts.length){ box.append(el('p', 'lead', 'Type a word or phrase to search all ' + D.filter(d => d.hasText).length + ' documents.')); return; }
+  if (!Pl) Pl = P.map(p => p[2].toLowerCase());
+  const okDoc = D.map(d => docOk(d, f)), hits = [];
+  for (let i = 0; i < P.length; i++) if (okDoc[P[i][0]] && ts.every(r => r.test(Pl[i]))) hits.push(i);
+  hits.sort((a, b) => byDate(P[a][0], P[b][0]) || a - b);
+  if (!hits.length){ box.append(el('p', 'note', 'No matches. Old scans can contain misread letters, so try a shorter or different word, or check the filters.')); return; }
+  const nd = new Set(hits.map(i => P[i][0])).size;
+  box.append(el('p', 'count', `${hits.length} ${hits.length === 1 ? 'passage' : 'passages'} in ${nd} ${nd === 1 ? 'document' : 'documents'}, newest first`));
+  hits.slice(0, textShown).forEach(i => {
+    const p = P[i], e = el('div', 'entry', citeHtml(D[p[0]], p[1]));
+    e.append(el('p', 'snip', snippet(p[2], ts).replace(/\n/g, ' ')));
+    const det = el('details', 'full', '<summary>Show the whole passage</summary>'); const pre = el('pre'); pre.textContent = p[2]; det.append(pre);
+    e.append(det); box.append(e);
+  });
+  if (hits.length > textShown){
+    const b = el('button', 'more', `Show ${Math.min(40, hits.length - textShown)} more passages`); b.type = 'button';
+    b.onclick = () => { textShown += 40; runText(); }; box.append(b);
+  }
+}
+
+// ---------------- All documents ----------------
+function runDocs(){
+  const f = filters(), rows = D.map((d, i) => i).filter(i => docOk(D[i], f)).sort(byDate);
+  $('doccount').textContent = `${rows.length} ${rows.length === 1 ? 'document' : 'documents'}`;
+  $('doctable').innerHTML = rows.map(i => { const d = D[i];
+    const cov = !d.hasText ? '<span class="pill none">No readable text</span>' : d.sorted ? '<span class="pill">Sorted by department</span>' : '<span class="pill words">Word search only</span>';
+    return `<tr><td>${esc(d.amend || d.order || 'unknown')}</td><td>${d.role === 'amendment' ? 'Amendment' : 'Order'}</td><td>${d.role === 'amendment' ? esc(d.order) : ''}</td><td>${esc(d.pms)}</td><td>${cov}</td><td>${d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener">Open</a>` : ''}</td></tr>`;
+  }).join('');
+}
+
+// ---------------- Act timeline ----------------
+const ACTS = (DATA.acts || []).map((a, i) => ({i, name: a[0], low: a[0].toLowerCase(), rows: a[1],
+  orders: new Set(a[1].map(r => r[0])).size}));
+const slug = s => s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const ACT_BY_SLUG = new Map(ACTS.map(a => [slug(a.name), a]));
+const SORTED = D.map((d, i) => i).filter(i => D[i].sorted && D[i].iso).sort((a, b) => D[a].iso.localeCompare(D[b].iso));
+const LAST_ISO = D.map(d => d.iso).filter(Boolean).sort().pop();
+const nice = iso => { const [y, m, d] = iso.split('-').map(Number);
+  return `${d} ${['January','February','March','April','May','June','July','August','September','October','November','December'][m - 1]} ${y}`; };
+const yearOf = iso => { const [y, m, d] = iso.split('-').map(Number); return y + (m - 1) / 12 + (d - 1) / 365; };
+let actNow = null;
+
+function findActs(q){
+  const words = q.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  if (!words.length) return [];
+  const hits = ACTS.filter(a => words.every(w => new RegExp('(^|[^a-z0-9])' + w).test(a.low)));
+  const lq = q.toLowerCase().trim();
+  hits.sort((a, b) => (b.low.startsWith(lq) - a.low.startsWith(lq)) || (b.orders - a.orders) || a.low.localeCompare(b.low));
+  return hits.slice(0, 8);
+}
+function suggest(){
+  const box = $('act-suggest'), q = $('q-act').value.trim();
+  box.textContent = '';
+  if (!q || (actNow && q === actNow.name)) { box.hidden = true; return; }
+  const hits = findActs(q);
+  if (!hits.length){ box.hidden = false; box.append(el('p', 'note', 'No Act by that name in the sorted orders. Try fewer words, or the full-text search.')); return; }
+  hits.forEach(a => { const b = el('button', '', `<span>${esc(a.name)}</span><span class="n">${a.orders} order${a.orders === 1 ? '' : 's'}</span>`);
+    b.type = 'button'; b.onclick = () => pickAct(a); box.append(b); });
+  box.hidden = false;
+}
+function pickAct(a){
+  actNow = a; $('q-act').value = a.name; $('act-suggest').hidden = true;
+  try { history.replaceState(null, '', '#act-' + slug(a.name)); } catch (e) {}
+  renderAct();
+}
+
+// Which unsorted documents (short amendments, orders not sorted) mention this Act in their text?
+const passagesByDoc = new Map();
+P.forEach((p, i) => { if (!passagesByDoc.has(p[0])) passagesByDoc.set(p[0], []); passagesByDoc.get(p[0]).push(i); });
+function mentions(a){
+  const base = a.name.replace(/\s+(1[89]|20)\d\d$/, '');
+  const re = new RegExp(base.split(/\s+/).map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('\\s+'), 'i');
+  const out = [];
+  D.forEach((d, i) => {
+    if (d.sorted || !d.hasText || !d.iso) return;
+    const hit = (passagesByDoc.get(i) || []).find(pi => re.test(P[pi][2]));
+    if (hit !== undefined) out.push({doc: i, page: P[hit][1]});
+  });
+  return out;
+}
+
+function holdingsOf(a){
+  const by = new Map();
+  a.rows.forEach(([doc, dept, page, q]) => { if (!by.has(doc)) by.set(doc, []); by.get(doc).push({dept, page, q}); });
+  return by;
+}
+function citation(doc, row){
+  const d = D[doc];
+  return `${cite(d)}, Schedule, ${deptName(DEP[row.dept])}, PDF page ${row.page} (${d.url})`;
+}
+
+function asAtCard(a, by, iso){
+  const box = el('div', 'card');
+  const prior = SORTED.filter(i => D[i].iso <= iso);
+  if (!prior.length){
+    box.innerHTML = `<div class="big">Before the sorted orders</div><div class="sub">Department records start on ${esc(nice(D[SORTED[0]].iso))}. For earlier dates, use "Search the full text".</div>`;
+    return box;
+  }
+  const inForce = prior[prior.length - 1];
+  const rows = by.get(inForce);
+  const later = D.map((d, i) => i).filter(i => !D[i].sorted && D[i].iso && D[i].iso > D[inForce].iso && D[i].iso <= iso);
+  const ment = new Set(mentions(a).map(m => m.doc));
+  let html = '';
+  if (rows){
+    html += `<div class="sub">On ${esc(nice(iso))}, according to the ${esc(cite(D[inForce]))}:</div><ul>` +
+      rows.map(r => `<li><span class="big">${esc(deptName(DEP[r.dept]))}</span>${r.q >= 0 ? ` <span class="sub">(${esc(T[r.q])})</span>` : ''} <span class="sub">· PDF page ${r.page}</span></li>`).join('') + '</ul>';
+  } else {
+    const last = [...by.keys()].filter(i => D[i].iso <= iso).sort((x, y) => D[y].iso.localeCompare(D[x].iso))[0];
+    html += `<div class="big">Not listed in the order in force on ${esc(nice(iso))}</div><div class="sub">The ${esc(cite(D[inForce]))} does not list this Act. ` +
+      (last !== undefined ? `It was last listed in the ${esc(cite(D[last]))}.` : 'It is not listed in any earlier sorted order.') +
+      ' It may not have been made yet, may have been repealed, or may have been missed when the scan was read. Check the source.</div>';
+  }
+  if (iso > LAST_ISO) html += `<div class="note">The archive ends on ${esc(nice(LAST_ISO))}. Later orders are not included.</div>`;
+  const flagged = later.filter(i => ment.has(i));
+  if (flagged.length) html += `<div class="note">${flagged.length === 1 ? 'A later document mentions' : 'Later documents mention'} this Act and may have changed the position: ` +
+      flagged.map(i => `<a href="${esc(D[i].url)}" target="_blank" rel="noopener">${esc(cite(D[i]))}</a>`).join('; ') + '.</div>';
+  else if (later.length) html += `<div class="sub">${later.length} later short amendment${later.length === 1 ? '' : 's'} before this date ${later.length === 1 ? 'does' : 'do'} not mention this Act by name.</div>`;
+  html += `<div class="row">${D[inForce].url ? `<a href="${esc(D[inForce].url)}" target="_blank" rel="noopener">Open the order</a>` : ''}` +
+    (rows ? '<button type="button" class="copy">Copy citation</button>' : '') + '</div>';
+  box.innerHTML = html;
+  const btn = box.querySelector('.copy');
+  if (btn) btn.onclick = () => {
+    const text = rows.map(r => citation(inForce, r)).join('\n');
+    const done = () => { btn.textContent = 'Copied'; setTimeout(() => btn.textContent = 'Copy citation', 1600); };
+    (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(done, () => {
+      const ta = document.createElement('textarea'); ta.value = text; box.append(ta); ta.select();
+      try { document.execCommand('copy'); done(); } catch (e) {} ta.remove(); });
+  };
+  return box;
+}
+
+function timeline(a, by, markIso){
+  // one row per department that ever held the Act; a bar runs from each order that lists it to the next sorted order
+  const lanes = [], laneOf = new Map(), segs = [];
+  SORTED.forEach((doc, k) => {
+    (by.get(doc) || []).forEach(r => {
+      if (!laneOf.has(r.dept)) { laneOf.set(r.dept, lanes.length); lanes.push(r.dept); }
+      const end = k + 1 < SORTED.length ? D[SORTED[k + 1]].iso : null;
+      const part = r.q >= 0;
+      const prev = segs.filter(s => s.dept === r.dept).pop();
+      if (prev && prev.toDoc === k && prev.part === part) { prev.end = end; prev.toDoc = k + 1; prev.docs.push({doc, r}); }
+      else segs.push({dept: r.dept, part, start: D[doc].iso, end, toDoc: k + 1, docs: [{doc, r}]});
+    });
+  });
+  const ment = mentions(a);
+  const firstIso = segs.length ? segs[0].start : D[SORTED[0]].iso;
+  const x0 = Math.max(Math.floor(yearOf(D[SORTED[0]].iso)), Math.floor(yearOf(firstIso)) - 2);
+  const x1 = Math.ceil(yearOf(LAST_ISO)) + 1;
+  const W = 900, L = 14, R = 16, laneH = 40, top = 30;
+  const mkRow = ment.some(m => yearOf(D[m.doc].iso) >= x0);
+  const H = top + lanes.length * laneH + (mkRow ? laneH : 0) + 8;
+  const X = y => L + (y - x0) / (x1 - x0) * (W - L - R);
+  const step = (x1 - x0) > 30 ? 10 : 5;
+  let svg = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Timeline of departments administering ${esc(a.name)}">` +
+    `<defs><pattern id="hatch" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">` +
+    `<rect width="3" height="6" style="fill:var(--accent)"></rect></pattern></defs>`;
+  for (let y = Math.ceil(x0 / step) * step; y <= x1; y += step)
+    svg += `<line class="grid" x1="${X(y)}" x2="${X(y)}" y1="18" y2="${H - 4}"></line><text x="${X(y)}" y="12" text-anchor="middle">${y}</text>`;
+  lanes.forEach((dept, li) => {
+    const y = top + li * laneH;
+    svg += `<text class="lane" x="${L}" y="${y + 11}">${esc(deptName(DEP[dept]))}</text>`;
+    segs.filter(s => s.dept === dept).forEach(s => {
+      const xa = X(yearOf(s.start)), xb = X(s.end ? yearOf(s.end) : yearOf(LAST_ISO) + 0.4);
+      const first = s.docs[0], lastD = s.docs[s.docs.length - 1];
+      const tip = `<strong>${esc(deptName(DEP[dept]))}</strong><br>${esc(nice(s.start))} to ${s.end ? esc(nice(s.end)) : 'at least ' + esc(nice(LAST_ISO))}` +
+        `<br>${s.docs.length} order${s.docs.length === 1 ? '' : 's'}` + (s.part ? `<br>Part only: ${esc(T[first.r.q])}` : '');
+      svg += `<rect class="bar${s.part ? ' part' : ''}" x="${xa}" y="${y + 17}" width="${Math.max(3, xb - xa - 2)}" height="14" rx="3" data-tip="${esc(tip)}"></rect>`;
+    });
+  });
+  if (mkRow){
+    const y = top + lanes.length * laneH;
+    svg += `<text class="lane" x="${L}" y="${y + 11}">Mentioned in a document that is not sorted</text>`;
+    ment.forEach(m => { const d = D[m.doc], cx = X(yearOf(d.iso)); if (yearOf(d.iso) < x0) return;
+      svg += `<rect class="mk" x="${cx - 5}" y="${y + 19}" width="10" height="10" transform="rotate(45 ${cx} ${y + 24})" ` +
+        `data-tip="${esc(`<strong>${cite(d)}</strong><br>Mentions this Act (PDF page ${m.page}). Check whether it changed who administers it.`)}"></rect>`; });
+  }
+  if (markIso){ const mx = X(yearOf(markIso)); if (mx >= L && mx <= W - R) svg += `<line class="now" x1="${mx}" x2="${mx}" y1="18" y2="${H - 4}"></line>`; }
+  svg += '</svg>';
+  const wrap = el('div', 'chart', svg);
+  wrap.append(el('div', 'legend', '<span><i class="sw"></i>Whole Act</span><span><i class="sw part"></i>Part of the Act only</span>' +
+    (mkRow ? '<span><i class="sw mk"></i>Mentioned in an unsorted document</span>' : '') +
+    (markIso ? '<span>Dashed line: your date</span>' : '')));
+  const tip = el('div', 'tip'); tip.hidden = true; wrap.append(tip);
+  wrap.addEventListener('mousemove', e => {
+    const t = e.target.closest('[data-tip]');
+    if (!t) { tip.hidden = true; return; }
+    tip.innerHTML = t.getAttribute('data-tip'); tip.hidden = false;
+    const r = wrap.getBoundingClientRect();
+    let x = e.clientX - r.left + wrap.scrollLeft + 14, y = e.clientY - r.top + 14;
+    if (x + 300 > wrap.clientWidth + wrap.scrollLeft) x = Math.max(4, x - 320);
+    tip.style.left = x + 'px'; tip.style.top = y + 'px';
+  });
+  wrap.addEventListener('mouseleave', () => tip.hidden = true);
+  return {wrap, ment, segs};
+}
+
+function renderAct(){
+  const out = $('act-out'); out.textContent = '';
+  if (!actNow){
+    out.append(el('p', 'lead', 'Type the name of an Act above. For example: ' +
+      ['Privacy Act 1988', 'Archives Act 1983', 'Migration Act 1958', 'Customs Act 1901'].map(n => {
+        const a = ACT_BY_SLUG.get(slug(n)); return a ? `<button type="button" class="linkbtn" data-act="${esc(slug(n))}">${esc(n)}</button>` : '';
+      }).filter(Boolean).join(', ') + '.'));
+    out.querySelectorAll('[data-act]').forEach(b => b.onclick = () => pickAct(ACT_BY_SLUG.get(b.dataset.act)));
+    return;
+  }
+  const a = actNow, by = holdingsOf(a);
+  const listed = [...by.keys()].sort((x, y) => D[x].iso.localeCompare(D[y].iso));
+  const depts = new Set(a.rows.map(r => r[1]));
+  out.append(el('div', 'acthead', `<h2>${esc(a.name)}</h2><span class="meta">Listed in ${listed.length} of ${SORTED.length} sorted orders, ` +
+    `${esc(nice(D[listed[0]].iso))} to ${esc(nice(D[listed[listed.length - 1]].iso))} · ${depts.size} department${depts.size === 1 ? '' : 's'}</span>`));
+  const asat = el('div', 'asat', `<label for="act-date">Who administered it on</label><input type="date" id="act-date" value="${$('act-date-keep').value}">`);
+  out.append(asat);
+  const iso = $('act-date-keep').value;
+  if (iso) out.append(asAtCard(a, by, iso));
+  const {wrap, ment} = timeline(a, by, iso);
+  out.append(wrap);
+  // order by order, newest first, so every bar can be checked against its source
+  const rows = [];
+  listed.forEach(doc => by.get(doc).forEach(r => rows.push({doc, r})));
+  ment.forEach(m => rows.push({doc: m.doc, mention: m}));
+  rows.sort((x, y) => D[y.doc].iso.localeCompare(D[x.doc].iso));
+  const tbl = el('div', 'tablebox');
+  tbl.innerHTML = '<table><thead><tr><th>Date</th><th>Document</th><th>Department</th><th>Detail</th><th>PDF page</th><th>Source</th></tr></thead><tbody>' +
+    rows.map(x => { const d = D[x.doc];
+      if (x.mention) return `<tr class="warnrow"><td>${esc(nice(d.iso))}</td><td>${d.role === 'amendment' ? 'Amendment' : 'Order'} (not sorted)</td><td>Check the source</td><td>Mentions this Act</td><td>${x.mention.page}</td><td>${d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener">Open</a>` : ''}</td></tr>`;
+      return `<tr><td>${esc(nice(d.iso))}</td><td>${d.role === 'amendment' ? 'Amendment' : 'Order'}</td><td>${esc(deptName(DEP[x.r.dept]))}</td><td>${x.r.q >= 0 ? esc(T[x.r.q]) : ''}</td><td>${x.r.page}</td><td>${d.url ? `<a href="${esc(d.url)}" target="_blank" rel="noopener">Open</a>` : ''}</td></tr>`;
+    }).join('') + '</tbody></table>';
+  out.append(el('h3', '', 'Order by order'));
+  out.append(tbl);
+  $('act-date').addEventListener('change', e => { $('act-date-keep').value = e.target.value; renderAct(); });
+}
+
+// ---------------- wiring ----------------
+const TABS = ['act', 'departments', 'text', 'documents', 'about'];
+let current = 'act';
+function show(tab){
+  if (tab.startsWith('act-')) { const a = ACT_BY_SLUG.get(tab.slice(4)); tab = 'act'; if (a) { actNow = a; $('q-act').value = a.name; } }
+  if (!TABS.includes(tab)) tab = 'act';
+  current = tab;
+  TABS.forEach(t => { $('p-' + t).hidden = t !== tab; $('tab-' + t).setAttribute('aria-selected', t === tab); });
+  $('filters').hidden = tab === 'about' || tab === 'act';
+  refresh();
+}
+function refresh(){
+  const f = filters(), bits = [];
+  if (f.y0 > Y0 || f.y1 < Y1) bits.push(`${f.y0} to ${f.y1}`);
+  if (f.pm) bits.push(f.pm.replace(/\s*\(.*/, ''));
+  if (f.role) bits.push(f.role + 's only');
+  if (f.asat) bits.push('on or before ' + f.asat.split('-').reverse().join('/'));
+  $('filtersum').textContent = bits.length ? '· ' + bits.join(' · ') : '';
+  if (current === 'act') renderAct(); else if (current === 'departments') runItems(); else if (current === 'text') runText(); else if (current === 'documents') runDocs();
+}
+let timer; const later = fn => () => { clearTimeout(timer); timer = setTimeout(fn, 180); };
+$('q-items').addEventListener('input', later(() => { itemsShown = 25; runItems(); }));
+$('q-text').addEventListener('input', later(() => { textShown = 40; runText(); }));
+$('kind').addEventListener('change', runItems);
+$('q-act').addEventListener('input', later(suggest));
+$('q-act').addEventListener('keydown', e => { if (e.key === 'Enter') { const h = findActs($('q-act').value); if (h.length) pickAct(h[0]); } });
+['f-y0', 'f-y1', 'f-pm', 'f-role', 'f-asat'].forEach(id => $(id).addEventListener('input', later(() => { itemsShown = 25; textShown = 40; refresh(); })));
+$('f-clear').onclick = () => { $('f-y0').value = Y0; $('f-y1').value = Y1; $('f-pm').value = ''; $('f-role').value = ''; $('f-asat').value = ''; refresh(); };
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { show(b.dataset.tab); try { history.replaceState(null, '', '#' + b.dataset.tab); } catch (e) {} });
+
+$('f-y0').value = Y0; $('f-y1').value = Y1; $('f-y0').min = $('f-y1').min = Y0; $('f-y0').max = $('f-y1').max = Y1;
+const pmFirst = new Map();
+D.forEach(d => d.pms.split('; ').forEach(p => { if (p && (!pmFirst.has(p) || d.year < pmFirst.get(p))) pmFirst.set(p, d.year || 9999); }));
+[...pmFirst.entries()].sort((a, b) => a[1] - b[1]).forEach(([p]) => { const o = document.createElement('option'); o.value = o.textContent = p; $('f-pm').append(o); });
+const sortedDocs = D.filter(d => d.sorted), sy = sortedDocs.map(d => d.year);
+$('deptlead').textContent = `Find which department was responsible for an Act or a matter. Covers the ${sortedDocs.length} orders that could be sorted by department, from ${Math.min(...sy)} to ${Math.max(...sy)}. The "All documents" tab shows which ones. For anything else, use the full-text search.`;
+$('stats').textContent = `${D.length} orders and amendments, ${Y0} to ${Y1}. Every result links back to the original document. Check the source before relying on a result.`;
+$('built').textContent = 'Archive built ' + DATA.built + ' from the National Archives of Australia list of Administrative Arrangements Orders.';
+show((location.hash || '').slice(1));
+window.addEventListener('hashchange', () => show((location.hash || '').slice(1)));
+}).catch(e => { _loading.textContent = 'Error loading data: ' + e.message; });
+})();
+</script>
+
+</body>
+</html>
